@@ -28,7 +28,8 @@ solveDay1 :: Day1Option -> IO ()
 solveDay1 (Day1Option f) = do
   handle <- openFile f ReadMode
   contents <- hGetContents handle
-  putStrLn . show $ computeCaptcha $ filter isDigit contents
+  putStrLn ("Part 1: " ++ (show $ computeCaptcha $ filter isDigit contents))
+  putStrLn ("Part 2: " ++ (show $ computeCaptcha2 $ filter isDigit contents))
   hClose handle
 
 
@@ -42,3 +43,22 @@ captchaSum :: (Num a, Eq a) => [a] -> a
 captchaSum (_:[])                = 0
 captchaSum (x:y:xs) | x == y     = x + captchaSum (y:xs)
                     | otherwise  = captchaSum (y:xs)
+
+computeCaptcha2 :: String -> Int
+computeCaptcha2 s = captchaSum2 numSeries
+  where
+    numSeries = fmap digitToInt s
+
+
+captchaSum2 :: [Int] -> Int
+captchaSum2 xs = captchaSum2' xs (len `div` 2)
+  where
+    len = length xs
+    nextIndex i = (i + 1) `mod` len
+    captchaSum2' :: [Int] -> Int -> Int
+    captchaSum2' ([])   _ = 0
+    captchaSum2' (x:ys) i | x == xs !! i  = x + (captchaSum2' ys $ nextIndex i)
+                          | otherwise     = captchaSum2' ys $ nextIndex i
+
+
+
