@@ -3,6 +3,17 @@ module Main where
 import Data.Semigroup ((<>))
 import Options.Applicative
 import System.IO
+import Math.Geometry.Grid
+import Math.Geometry.Grid.SquareInternal
+import Control.Monad (join)
+import Data.Maybe (catMaybes)
+import qualified Data.HashMap.Strict as Map
+import Control.Monad.State.Lazy
+          ( State(..)
+          , get
+          , put
+          , evalState
+          )
 
 main :: IO ()
 main = solveDay3 =<< execParser opts
@@ -66,4 +77,62 @@ solveDay3 (Day3Option f) = do
   contents <- hGetContents handle
   let num = read contents :: Int
   putStrLn . show $ getSteps num
+  let val = head $ dropWhile (<= num) $ evalState allValues (Map.singleton (0,0) 1, 1)
+  putStrLn . show $ val
   hClose handle
+
+
+-- X  X  *  X  X
+-- X  5  4  2  X
+-- * 10  1  1 54
+-- X 11 23 25 26 X
+-- X  X  *  X  X
+
+
+--17 16 15 14 13
+--18  5  4  3 12
+--19  6  1  2 11
+--20  7  8  9 10
+--21 22 23 24 25
+
+directionAround :: Int -> [SquareDirection]
+directionAround 0 = []
+directionAround n = [East] ++ takeNorth ++ takeWest ++ takeSouth ++ takeEast
+  where
+    steps     = n * 2
+    takeNorth = take (steps - 1) $ repeat North
+    takeSouth = take steps $ repeat South
+    takeEast  = take steps $ repeat East
+    takeWest  = take steps $ repeat West
+
+walkAroundDirection :: [Maybe SquareDirection]
+walkAroundDirection = [ Just y | x <- [1..], y <- directionAround x]
+
+walkAround :: [Maybe (Index UnboundedSquareGrid)]
+walkAround = Just (0,0) : zipWith getNextPos walkAround walkAroundDirection
+      where
+        getNextPos a b = join $ neighbour <$> Just UnboundedSquareGrid
+                                          <*> a
+                                          <*> b
+
+type GridValue = Map.HashMap (Index UnboundedSquareGrid) Int
+computeNumber :: Index UnboundedSquareGrid -> GridValue -> Int
+computeNumber idx gridValue = sum $ catMaybes $ surrounding gridValue
+  where
+    surrounding v = fmap (flip Map.lookup v)
+                    [ (x+1,y), (x+1,y+1), (x+1,y-1)
+                    , (x,y+1), (x,y-1)
+                    , (x-1,y), (x-1,y+1), (x-1,y-1)
+                    ]
+    (x, y)        = idx
+
+allValues :: State (GridValue, Int) [Int]
+allValues = do
+    (gridValue, step) <- get
+    let (Just idx) = walkAround !! step
+    let val = computeNumber idx gridValue
+    put $ (Map.insert idx val gridValue, step + 1)
+    xs <- allValues
+    return (val:xs)
+
+
